@@ -3,7 +3,7 @@ from http import HTTPStatus
 from django.contrib.auth import get_user_model
 from django.test import TestCase, Client
 
-from ..models import Post, Group, User
+from posts.models import Post, Group, User
 
 User = get_user_model()
 
