@@ -5,7 +5,7 @@ from django.test import Client, TestCase
 from django.urls import reverse
 
 
-from posts.models import Post, Group
+from posts.models import Post, Group, User
 
 User = get_user_model()
 
