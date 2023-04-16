@@ -1,11 +1,9 @@
 from http import HTTPStatus
 
-from django.contrib.auth import get_user_model
+from django.urls import reverse
 from django.test import TestCase, Client
 
 from posts.models import Post, Group, User
-
-User = get_user_model()
 
 
 class PostURLTests(TestCase):
@@ -29,6 +27,7 @@ class PostURLTests(TestCase):
         self.guest_client = Client()
         self.authorized_client = Client()
         self.authorized_client_author = Client()
+        self.authorized_client_not_author = Client()
         self.authorized_client.force_login(PostURLTests.auth_user)
         self.authorized_client_author.force_login(PostURLTests.author)
 
@@ -36,10 +35,12 @@ class PostURLTests(TestCase):
         """URL-адрес использует соответствующий шаблон."""
         templates_url_names = {
             'posts/index.html': '/',
-            'posts/group_list.html': '/group/test-slug/',
+            'posts/group_list.html': f'/group/{self.group.slug}/',
             'posts/profile.html': '/profile/author/',
             'posts/post_detail.html': f'/posts/{self.post.id}/',
             'posts/post_create.html': '/create/',
+            'about/author.html': '/about/author/',
+            'about/tech.html': '/about/tech/',
         }
         for template, url in templates_url_names.items():
             with self.subTest(url=url):
@@ -75,16 +76,14 @@ class PostURLTests(TestCase):
         """Страница /create/ перенаправит анонимного пользователя
         на страницу логина.
         """
-        response = self.client.get('/create/', follow=True)
-        self.assertRedirects(
-            response, '/auth/login/?next=/create/'
-        )
+        response = self.guest_client.get(reverse('posts:post_create'))
+        self.assertRedirects(response, '/auth/login/?next=/create/')
 
     def test_post_edit_url_redirect_anonymous_on_admin_login(self):
         """Страница post_edit перенаправит анонимного пользователя
         на страницу логина.
         """
-        response = self.client.get(f'/posts/{self.post.pk}/edit/', follow=True)
+        response = self.client.get(f'/posts/{self.post.id}/edit/', follow=True)
         self.assertRedirects(
             response, f'/auth/login/?next=/posts/{self.post.id}/edit/'
         )
@@ -93,3 +92,22 @@ class PostURLTests(TestCase):
         """Запрос к несуществующей странице."""
         response = self.guest_client.get('/page_404')
         self.assertEqual(response.status_code, HTTPStatus.NOT_FOUND)
+
+    def test_redirect_not_author(self):
+        """Редирект при попытке редактирования чужого поста."""
+        self.post = Post.objects.create(
+            text='Текст для теста',
+            author=self.author,
+            group=self.group
+        )
+        form_data = {
+            'text': 'Текст в форме записи'
+        }
+        response = self.authorized_client_not_author.post(
+            reverse('posts:post_edit', kwargs={'post_id': self.post.id}),
+            form_data,
+            follow=True
+        )
+        self.assertRedirects(
+            response, f'/auth/login/?next=/posts/{self.post.id}/edit/'
+        )

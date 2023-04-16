@@ -1,9 +1,7 @@
-from django.contrib.auth import get_user_model
 from django.test import TestCase
+from django.conf import settings
 
 from posts.models import Group, Post, User
-
-User = get_user_model()
 
 
 class PostModelTest(TestCase):
@@ -18,7 +16,7 @@ class PostModelTest(TestCase):
         )
         cls.post = Post.objects.create(
             author=cls.user,
-            text='Тестовый пост',
+            text='Тестовый текст больше 15 символов для проверки',
         )
 
     def test_model_group_object_name(self):
@@ -28,7 +26,7 @@ class PostModelTest(TestCase):
 
     def test_model_post_object_name(self):
         """Проверяем, что у модели Post корректно работает __str__."""
-        expected_post_str = self.post.text[:15]
+        expected_post_str = self.post.text[:settings.LIMIT_TEXT]
         self.assertEqual(expected_post_str, str(self.post))
 
     def test_verbose_name(self):
