@@ -24,12 +24,11 @@ class PostURLTests(TestCase):
         )
 
     def setUp(self):
-        self.guest_client = Client()
         self.authorized_client = Client()
         self.authorized_client_author = Client()
         self.authorized_client_not_author = Client()
         self.authorized_client.force_login(PostURLTests.auth_user)
-        self.authorized_client_author.force_login(PostURLTests.author)
+        self.authorized_client_author.force_login(self.author)
 
     def test_urls_uses_correct_template(self):
         """URL-адрес использует соответствующий шаблон."""
@@ -51,13 +50,13 @@ class PostURLTests(TestCase):
         """Доступность страниц в приложении Posts."""
         url_names = (
             '/',
-            '/group/test-slug/',
+            f'/group/{self.group.slug}/',
             '/profile/author/',
             f'/posts/{self.post.id}/',
         )
         for address in url_names:
             with self.subTest():
-                response = self.guest_client.get(address)
+                response = self.client.get(address)
                 self.assertEqual(response.status_code, HTTPStatus.OK)
 
     def test_url_exists_at_desired_location(self):
@@ -76,7 +75,7 @@ class PostURLTests(TestCase):
         """Страница /create/ перенаправит анонимного пользователя
         на страницу логина.
         """
-        response = self.guest_client.get(reverse('posts:post_create'))
+        response = self.client.get(reverse('posts:post_create'))
         self.assertRedirects(response, '/auth/login/?next=/create/')
 
     def test_post_edit_url_redirect_anonymous_on_admin_login(self):
@@ -90,24 +89,23 @@ class PostURLTests(TestCase):
 
     def test_page_404(self):
         """Запрос к несуществующей странице."""
-        response = self.guest_client.get('/page_404')
+        response = self.client.get('/page_404')
         self.assertEqual(response.status_code, HTTPStatus.NOT_FOUND)
 
     def test_redirect_not_author(self):
         """Редирект при попытке редактирования чужого поста."""
-        self.post = Post.objects.create(
-            text='Текст для теста',
-            author=self.author,
-            group=self.group
-        )
-        form_data = {
-            'text': 'Текст в форме записи'
+        self.editor = User.objects.create_user(username='User')
+        self.editor_client = Client()
+        self.editor_client.force_login(self.editor)
+        new_data = {
+            'text': 'Отредактированный текст'
         }
-        response = self.authorized_client_not_author.post(
+        response = self.editor_client.post(
             reverse('posts:post_edit', kwargs={'post_id': self.post.id}),
-            form_data,
+            data=new_data,
             follow=True
         )
         self.assertRedirects(
-            response, f'/auth/login/?next=/posts/{self.post.id}/edit/'
+            response,
+            reverse('posts:post_detail', kwargs={'post_id': self.post.id})
         )

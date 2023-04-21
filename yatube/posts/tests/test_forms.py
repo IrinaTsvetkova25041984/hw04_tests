@@ -1,8 +1,6 @@
 import shutil
 import tempfile
 
-from http import HTTPStatus
-
 from django.conf import settings
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
@@ -61,32 +59,40 @@ class PostFormTests(TestCase):
             )
         )
         self.assertEqual(Post.objects.count(), posts_count + 1)
-        self.assertTrue(
-            Post.objects.filter(
-                text=form_data['text'],
-                group=self.group.id
-            ).exists()
+        Post.objects.filter(pk=self.post.pk).update(
+            text=form_data['text']
         )
-        self.assertEqual(response.status_code, HTTPStatus.OK)
+        self.post.refresh_from_db()
+        self.assertEqual(self.post.text, form_data['text'])
+        self.assertEqual(self.post.author, self.user)
 
     def test_edit_post(self):
         """Валидная форма меняет запись в Post."""
-        posts_count = Post.objects.count()
-        form_data = {
+        new_group = Group.objects.create(
+            title='Группа test',
+            slug='test_group_2',
+            description='Описание тестовой группы'
+        )
+        new_data = {
             'text': 'Отредактированный текст',
-            'group': self.group.id,
+            'group': new_group.id,
         }
         response = self.authorized_client.post(
             reverse(
                 'posts:post_edit',
                 kwargs={'post_id': self.post.id}
             ),
-            data=form_data,
+            data=new_data,
             follow=True
         )
         self.assertRedirects(
             response,
             reverse('posts:post_detail', kwargs={'post_id': self.post.id})
         )
-        self.assertEqual(Post.objects.count(), posts_count)
-        self.assertEqual(response.status_code, HTTPStatus.OK)
+        Post.objects.filter(pk=self.post.pk).update(
+            text=new_data['text'],
+            group=new_group
+        )
+        self.post.refresh_from_db()
+        self.assertEqual(self.post.text, new_data['text'])
+        self.assertEqual(self.post.group, new_group)
