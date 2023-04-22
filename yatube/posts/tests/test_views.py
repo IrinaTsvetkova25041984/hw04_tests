@@ -9,7 +9,7 @@ class PostPagesTests(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.user = User.objects.create(username='user')
+        cls.user = User.objects.create(username='author')
         cls.author = User.objects.create(username='admin')
         cls.group = Group.objects.create(
             title='Тестовая группа',
@@ -23,7 +23,6 @@ class PostPagesTests(TestCase):
         )
 
     def setUp(self):
-        self.user = User.objects.create_user(username='author')
         self.authorized_client = Client()
         self.authorized_client.force_login(self.author)
 
@@ -51,13 +50,22 @@ class PostPagesTests(TestCase):
                 response = self.authorized_client.get(reverse_name)
                 self.assertTemplateUsed(response, template)
 
+    def page_test_query(self, response, find):
+        """."""
+        if find == 'page_obj':
+            post = response.context.get(find).object_list[0]
+        else:
+            post = response.context.get('post')
+        self.assertEqual(post.author, self.author)
+        self.assertEqual(post.text, self.post.text)
+        self.assertEqual(post.group, self.post.group)
+
     def test_index_context(self):
         """Index с правильным контекстом."""
         response = self.client.get(
             reverse('posts:index')
         )
-        page = list(Post.objects.all()[:settings.LIMIT_POSTS])
-        self.assertEqual(list(response.context['page_obj']), page)
+        self.page_test_query(response, 'page_obj')
 
     def test_group_post_context(self):
         """Group_post с правильным контекстом."""
@@ -67,10 +75,10 @@ class PostPagesTests(TestCase):
                 kwargs={'slug': self.group.slug}
             )
         )
-        page = list(
-            Post.objects.filter(group_id=self.group.id)[:settings.LIMIT_POSTS]
-        )
-        self.assertEqual(list(response.context['page_obj']), page)
+        group = response.context.get('group')
+        self.assertEqual(group.title, self.group.title)
+        self.assertEqual(group.description, self.group.description)
+        self.assertEqual(group.slug, self.group.slug)
 
     def test_post_detail_context(self):
         """Post_detail с правильным контекстом."""

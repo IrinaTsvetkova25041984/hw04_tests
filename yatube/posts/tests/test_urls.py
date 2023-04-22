@@ -26,7 +26,6 @@ class PostURLTests(TestCase):
     def setUp(self):
         self.authorized_client = Client()
         self.authorized_client_author = Client()
-        self.authorized_client_not_author = Client()
         self.authorized_client.force_login(PostURLTests.auth_user)
         self.authorized_client_author.force_login(self.author)
 
@@ -76,15 +75,23 @@ class PostURLTests(TestCase):
         на страницу логина.
         """
         response = self.client.get(reverse('posts:post_create'))
-        self.assertRedirects(response, '/auth/login/?next=/create/')
+        self.assertRedirects(
+            response,
+            reverse('users:login') + '?next=/create/'
+        )
 
     def test_post_edit_url_redirect_anonymous_on_admin_login(self):
         """Страница post_edit перенаправит анонимного пользователя
         на страницу логина.
         """
-        response = self.client.get(f'/posts/{self.post.id}/edit/', follow=True)
+        response = self.client.get(
+            reverse(
+                'posts:post_edit', kwargs={'post_id': self.post.id}
+            )
+        )
         self.assertRedirects(
-            response, f'/auth/login/?next=/posts/{self.post.id}/edit/'
+            response,
+            reverse('users:login') + '?next=/posts/1/edit/'
         )
 
     def test_page_404(self):
