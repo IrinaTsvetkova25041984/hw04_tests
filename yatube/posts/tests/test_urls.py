@@ -34,7 +34,7 @@ class PostURLTests(TestCase):
         templates_url_names = {
             'posts/index.html': '/',
             'posts/group_list.html': f'/group/{self.group.slug}/',
-            'posts/profile.html': '/profile/author/',
+            'posts/profile.html': f'/profile/{self.author.username}/',
             'posts/post_detail.html': f'/posts/{self.post.id}/',
             'posts/post_create.html': '/create/',
             'about/author.html': '/about/author/',
@@ -50,7 +50,7 @@ class PostURLTests(TestCase):
         url_names = (
             '/',
             f'/group/{self.group.slug}/',
-            '/profile/author/',
+            f'/profile/{self.author.username}/',
             f'/posts/{self.post.id}/',
         )
         for address in url_names:
@@ -75,9 +75,10 @@ class PostURLTests(TestCase):
         на страницу логина.
         """
         response = self.client.get(reverse('posts:post_create'))
+        adress = reverse('posts:post_create')
         self.assertRedirects(
             response,
-            reverse('users:login') + '?next=/create/'
+            reverse('users:login') + '?next=' + adress
         )
 
     def test_post_edit_url_redirect_anonymous_on_admin_login(self):
@@ -89,9 +90,10 @@ class PostURLTests(TestCase):
                 'posts:post_edit', kwargs={'post_id': self.post.id}
             )
         )
+        adress = reverse('posts:post_edit', kwargs={'post_id': self.post.id})
         self.assertRedirects(
             response,
-            reverse('users:login') + '?next=/posts/1/edit/'
+            reverse('users:login') + '?next=' + adress
         )
 
     def test_page_404(self):

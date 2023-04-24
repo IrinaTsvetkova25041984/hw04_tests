@@ -51,7 +51,7 @@ class PostPagesTests(TestCase):
                 self.assertTemplateUsed(response, template)
 
     def page_test_query(self, response, find):
-        """."""
+        """Страница тестовая."""
         if find == 'page_obj':
             post = response.context.get(find).object_list[0]
         else:
@@ -59,6 +59,7 @@ class PostPagesTests(TestCase):
         self.assertEqual(post.author, self.author)
         self.assertEqual(post.text, self.post.text)
         self.assertEqual(post.group, self.post.group)
+        self.assertEqual(post.group.id, self.post.group.id)
 
     def test_index_context(self):
         """Index с правильным контекстом."""
@@ -79,6 +80,8 @@ class PostPagesTests(TestCase):
         self.assertEqual(group.title, self.group.title)
         self.assertEqual(group.description, self.group.description)
         self.assertEqual(group.slug, self.group.slug)
+        self.assertEqual(group, self.post.group)
+        self.page_test_query(response, 'page_obj')
 
     def test_post_detail_context(self):
         """Post_detail с правильным контекстом."""
@@ -109,10 +112,8 @@ class PostPagesTests(TestCase):
         for page in pages_names:
             with self.subTest(page=page):
                 response = self.authorized_client.get(page)
-                self.assertIn(
-                    self.post,
-                    response.context['page_obj']
-                )
+                context_post = response.context['page_obj'][0]
+                self.assertEqual(context_post, self.post)
 
     def test_post_correct_not_appear(self):
         """Созданный пост не появляется в группе, которой не пренадлежит."""
@@ -125,6 +126,28 @@ class PostPagesTests(TestCase):
             reverse('posts:group_posts', kwargs={'slug': non_group.slug})
         )
         self.assertNotIn(Post.objects.get(), response.context['page_obj'])
+
+    def test_profile_correct_context(self):
+        """Profile с правильным контекстом."""
+        response = self.client.get(
+            reverse('posts:profile', kwargs={'username': self.author})
+        )
+        author = response.context.get('author')
+        self.assertEqual(author, self.post.author)
+
+    def test_create_and_edit_post_correct_context(self):
+        """Post_create и post_edit передаёт форму
+        создания поста.
+        """
+        templates_pages_names = {
+            'posts/post_create.html': (
+                reverse('posts:post_edit', kwargs={'post_id': self.post.id})
+            )
+        }
+        for template, reverse_name in templates_pages_names.items():
+            with self.subTest(reverse_name=reverse_name):
+                response = self.authorized_client.get(reverse_name)
+                self.assertTemplateUsed(response, template)
 
 
 class PaginatorViewsTest(TestCase):
@@ -156,12 +179,13 @@ class PaginatorViewsTest(TestCase):
             ),
         ]
         for url in urls_paginator:
-            response = self.client.get(url)
-            self.assertEqual(
-                len(
-                    response.context['page_obj']
-                ), settings.LIMIT_POSTS
-            )
+            with self.subTest(url):
+                response = self.client.get(url)
+                self.assertEqual(
+                    len(
+                        response.context['page_obj']
+                    ), settings.LIMIT_POSTS
+                )
 
     def test_second_page_contains_records(self):
         """Проверка паджинатора вторых страниц шаблонов."""
