@@ -1,3 +1,4 @@
+from django import forms
 from django.conf import settings
 from django.test import Client, TestCase
 from django.urls import reverse
@@ -91,10 +92,8 @@ class PostPagesTests(TestCase):
                 kwargs={'post_id': self.post.id}
             )
         )
-        post = response.context.get('post')
-        self.assertEqual(post.text, self.post.text)
-        self.assertEqual(post.author, self.post.author)
-        self.assertEqual(post.group, self.post.group)
+        response_post = response.context.get('post')
+        self.assertEqual(PostPagesTests.post, response_post)
 
     def test_post_correct_appear(self):
         """Создание поста на страницах с выбранной группой."""
@@ -112,8 +111,11 @@ class PostPagesTests(TestCase):
         for page in pages_names:
             with self.subTest(page=page):
                 response = self.authorized_client.get(page)
-                context_post = response.context['page_obj'][0]
-                self.assertEqual(context_post, self.post)
+                self.assertEqual(
+                    len(
+                        response.context['page_obj'].object_list
+                    ), 1
+                )
 
     def test_post_correct_not_appear(self):
         """Созданный пост не появляется в группе, которой не пренадлежит."""
@@ -125,7 +127,7 @@ class PostPagesTests(TestCase):
         response = self.authorized_client.get(
             reverse('posts:group_posts', kwargs={'slug': non_group.slug})
         )
-        self.assertNotIn(Post.objects.get(), response.context['page_obj'])
+        self.assertEqual(len(response.context['page_obj']), 0)
 
     def test_profile_correct_context(self):
         """Profile с правильным контекстом."""
@@ -134,20 +136,43 @@ class PostPagesTests(TestCase):
         )
         author = response.context.get('author')
         self.assertEqual(author, self.post.author)
+        post_text = response.context.get('page_obj')[0].text
+        post_author = response.context.get('page_obj')[0].author
+        group_post = response.context.get('page_obj')[0].group
+        self.assertEqual(post_text, 'тестовый пост')
+        self.assertEqual(post_author, PostPagesTests.author)
+        self.assertEqual(group_post, PostPagesTests.group)
 
-    def test_create_and_edit_post_correct_context(self):
-        """Post_create и post_edit передаёт форму
-        создания поста.
-        """
-        templates_pages_names = {
-            'posts/post_create.html': (
-                reverse('posts:post_edit', kwargs={'post_id': self.post.id})
-            )
+    def test_post_create_correct_context(self):
+        """Post_create с правильным контекстом."""
+        response = self.authorized_client.get(
+            reverse('posts:post_create')
+        )
+        form_fields = {
+            'text': forms.fields.CharField,
+            'group': forms.models.ModelChoiceField,
         }
-        for template, reverse_name in templates_pages_names.items():
-            with self.subTest(reverse_name=reverse_name):
-                response = self.authorized_client.get(reverse_name)
-                self.assertTemplateUsed(response, template)
+        for value, expected in form_fields.items():
+            with self.subTest(value=value):
+                form_field = response.context['form'].fields[value]
+                self.assertIsInstance(form_field, expected)
+
+    def test_post_edit_correct_context(self):
+        """Post_edit с правильным контекстом."""
+        response = self.authorized_client.get(
+            reverse(
+                'posts:post_edit',
+                kwargs={'post_id': self.post.id}
+            )
+        )
+        form_fields = {
+            'text': forms.fields.CharField,
+            'group': forms.models.ModelChoiceField,
+        }
+        for value, expected in form_fields.items():
+            with self.subTest(value=value):
+                form_field = response.context['form'].fields[value]
+                self.assertIsInstance(form_field, expected)
 
 
 class PaginatorViewsTest(TestCase):
@@ -160,7 +185,7 @@ class PaginatorViewsTest(TestCase):
             slug='test-slug',
             description='Тестовое описание',
         )
-        for i in range(settings.LIMIT_ONE):
+        for i in range(settings.ALL_RECORDS_ON_PAGE):
             Post.objects.create(
                 text=f'Пост {i}',
                 author=cls.user,
@@ -184,7 +209,7 @@ class PaginatorViewsTest(TestCase):
                 self.assertEqual(
                     len(
                         response.context['page_obj']
-                    ), settings.LIMIT_POSTS
+                    ), settings.NUMBER_OF_POSTS_PER_PAGE
                 )
 
     def test_second_page_contains_records(self):
@@ -201,9 +226,10 @@ class PaginatorViewsTest(TestCase):
             ),
         ]
         for url in urls_paginator:
-            response = self.client.get(url + '?page=2')
-            self.assertEqual(
-                len(
-                    response.context['page_obj']
-                ), settings.LIMIT_THREE
-            )
+            with self.subTest(url):
+                response = self.client.get(url + '?page=2')
+                self.assertEqual(
+                    len(
+                        response.context['page_obj']
+                    ), settings.SECOND_PAGE_RECORDS
+                )

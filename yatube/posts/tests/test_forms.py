@@ -51,18 +51,18 @@ class PostFormTests(TestCase):
             data=form_data,
             follow=True
         )
+        post_latest = Post.objects.latest('id')
+        self.assertEqual(Post.objects.count(), posts_count + 1)
         self.assertRedirects(
             response,
             reverse(
                 'posts:profile',
-                kwargs={'username': self.user.username}
+                kwargs={'username': self.post.author}
             )
         )
-        post = Post.objects.get(id=1)
-        self.assertEqual(Post.objects.count(), posts_count + 1)
-        self.assertEqual(post.text, form_data['text'])
-        self.assertEqual(post.group.id, form_data['group'])
-        self.assertEqual(post.author, self.user)
+        self.assertEqual(post_latest.text, form_data['text'])
+        self.assertEqual(post_latest.group.id, form_data['group'])
+        self.assertEqual(post_latest.author, self.user)
 
     def test_edit_post(self):
         """Валидная форма меняет запись в Post."""
