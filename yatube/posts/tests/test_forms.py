@@ -46,12 +46,12 @@ class PostFormTests(TestCase):
             'text': 'Тестовый текст',
             'group': self.group.id,
         }
+        old_ids = list(Post.objects.all().values_list('id', flat=True))
         response = self.authorized_client.post(
             reverse('posts:post_create'),
             data=form_data,
             follow=True
         )
-        post_latest = Post.objects.latest('id')
         self.assertEqual(Post.objects.count(), posts_count + 1)
         self.assertRedirects(
             response,
@@ -60,6 +60,9 @@ class PostFormTests(TestCase):
                 kwargs={'username': self.post.author}
             )
         )
+        new_posts = Post.objects.exclude(id__in=old_ids)
+        self.assertEqual(len(new_posts), 1)
+        post_latest = new_posts[0]
         self.assertEqual(post_latest.text, form_data['text'])
         self.assertEqual(post_latest.group.id, form_data['group'])
         self.assertEqual(post_latest.author, self.user)

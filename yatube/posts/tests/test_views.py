@@ -105,29 +105,28 @@ class PostPagesTests(TestCase):
             ),
             reverse(
                 'posts:profile',
-                kwargs={'username': self.author},
+                kwargs={'username': self.post.author},
             )
         ]
         for page in pages_names:
             with self.subTest(page=page):
                 response = self.authorized_client.get(page)
-                self.assertEqual(
-                    len(
-                        response.context['page_obj'].object_list
-                    ), 1
-                )
+                context_post = response.context['page_obj'][0]
+                self.assertEqual(context_post, self.post)
 
     def test_post_correct_not_appear(self):
         """Созданный пост не появляется в группе, которой не пренадлежит."""
-        non_group = Group.objects.create(
-            title='Дополнительная тестовая группа',
-            slug='test-non-slug',
-            description='Тестовое описание дополнительной группы'
-        )
-        response = self.authorized_client.get(
-            reverse('posts:group_posts', kwargs={'slug': non_group.slug})
-        )
-        self.assertEqual(len(response.context['page_obj']), 0)
+        form_fields = {
+            reverse(
+                'posts:group_posts',
+                kwargs={'slug': self.group.slug}
+            ): Post.objects.exclude(group=self.post.group),
+        }
+        for value, expected in form_fields.items():
+            with self.subTest(value=value):
+                response = self.authorized_client.get(value)
+                form_field = response.context['page_obj']
+                self.assertNotIn(expected, form_field)
 
     def test_profile_correct_context(self):
         """Profile с правильным контекстом."""
@@ -136,12 +135,7 @@ class PostPagesTests(TestCase):
         )
         author = response.context.get('author')
         self.assertEqual(author, self.post.author)
-        post_text = response.context.get('page_obj')[0].text
-        post_author = response.context.get('page_obj')[0].author
-        group_post = response.context.get('page_obj')[0].group
-        self.assertEqual(post_text, 'тестовый пост')
-        self.assertEqual(post_author, PostPagesTests.author)
-        self.assertEqual(group_post, PostPagesTests.group)
+        self.page_test_query(response, 'page_obj')
 
     def test_post_create_correct_context(self):
         """Post_create с правильным контекстом."""
