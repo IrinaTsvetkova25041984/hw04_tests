@@ -105,7 +105,7 @@ class PostPagesTests(TestCase):
             ),
             reverse(
                 'posts:profile',
-                kwargs={'username': self.post.author},
+                kwargs={'username': self.author},
             )
         ]
         for page in pages_names:
@@ -116,17 +116,20 @@ class PostPagesTests(TestCase):
 
     def test_post_correct_not_appear(self):
         """Созданный пост не появляется в группе, которой не пренадлежит."""
-        form_fields = {
+        Group.objects.create(
+            title='Тестовая группа 2',
+            slug='test-group-2',
+            description='Тестовое описание 2'
+        )
+        response = self.authorized_client.get(
             reverse(
                 'posts:group_posts',
                 kwargs={'slug': self.group.slug}
-            ): Post.objects.exclude(group=self.post.group),
-        }
-        for value, expected in form_fields.items():
-            with self.subTest(value=value):
-                response = self.authorized_client.get(value)
-                form_field = response.context['page_obj']
-                self.assertNotIn(expected, form_field)
+            )
+        )
+        for object in response.context['page_obj']:
+            post_slug = object.group.slug
+            self.assertEqual(post_slug, self.group.slug)
 
     def test_profile_correct_context(self):
         """Profile с правильным контекстом."""

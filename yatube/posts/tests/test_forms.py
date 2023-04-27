@@ -46,7 +46,7 @@ class PostFormTests(TestCase):
             'text': 'Тестовый текст',
             'group': self.group.id,
         }
-        old_ids = list(Post.objects.all().values_list('id', flat=True))
+        old_ids = [post.id for post in Post.objects.all()]
         response = self.authorized_client.post(
             reverse('posts:post_create'),
             data=form_data,
