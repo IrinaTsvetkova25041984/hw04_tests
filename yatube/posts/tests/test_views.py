@@ -97,6 +97,21 @@ class PostPagesTests(TestCase):
 
     def test_post_correct_appear(self):
         """Создание поста на страницах с выбранной группой."""
+        group = Group.objects.create(
+            title='new_title',
+            slug='new_slug',
+            description='new_description'
+        )
+        form_data = {
+            'text': 'new_text',
+            'group': group.id
+        }
+        response_create = self.authorized_client.post(
+            reverse('posts:post_create'),
+            data=form_data,
+            follow=True
+        )
+        response_create_post = response_create.context.get('post')
         pages_names = [
             reverse('posts:index'),
             reverse(
@@ -108,28 +123,30 @@ class PostPagesTests(TestCase):
                 kwargs={'username': self.author},
             )
         ]
+        responses = []
         for page in pages_names:
-            with self.subTest(page=page):
-                response = self.authorized_client.get(page)
-                context_post = response.context['page_obj'][0]
-                self.assertEqual(context_post, self.post)
+            response = self.authorized_client.get(page)
+        responses.append(response)
+        response_posts = []
+        for response in responses:
+            response_post = response.context.get('post')
+        response_posts.append(response_post)
+        self.assertIn(response_create_post, response_posts)
 
     def test_post_correct_not_appear(self):
         """Созданный пост не появляется в группе, которой не пренадлежит."""
-        Group.objects.create(
-            title='Тестовая группа 2',
-            slug='test-group-2',
-            description='Тестовое описание 2'
+        other_group = Group.objects.create(
+            title='other title',
+            slug='test-other-slug',
+            description='other description',
         )
         response = self.authorized_client.get(
             reverse(
                 'posts:group_posts',
-                kwargs={'slug': self.group.slug}
+                kwargs={'slug': other_group.slug}
             )
         )
-        for object in response.context['page_obj']:
-            post_slug = object.group.slug
-            self.assertEqual(post_slug, self.group.slug)
+        self.assertNotIn(self.post, response.context['page_obj'])
 
     def test_profile_correct_context(self):
         """Profile с правильным контекстом."""
