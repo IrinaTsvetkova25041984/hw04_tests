@@ -20,7 +20,7 @@ class PostPagesTests(TestCase):
         cls.post = Post.objects.create(
             author=PostPagesTests.author,
             group=PostPagesTests.group,
-            text='тестовый пост',
+            text='Тестовый пост',
         )
 
     def setUp(self):
@@ -97,21 +97,11 @@ class PostPagesTests(TestCase):
 
     def test_post_correct_appear(self):
         """Создание поста на страницах с выбранной группой."""
-        group = Group.objects.create(
-            title='new_title',
-            slug='new_slug',
-            description='new_description'
+        post = Post.objects.create(
+            text='Тестовый пост',
+            author=PostPagesTests.user,
+            group=PostPagesTests.group
         )
-        form_data = {
-            'text': 'new_text',
-            'group': group.id
-        }
-        response_create = self.authorized_client.post(
-            reverse('posts:post_create'),
-            data=form_data,
-            follow=True
-        )
-        response_create_post = response_create.context.get('post')
         pages_names = [
             reverse('posts:index'),
             reverse(
@@ -120,18 +110,14 @@ class PostPagesTests(TestCase):
             ),
             reverse(
                 'posts:profile',
-                kwargs={'username': self.author},
-            )
+                kwargs={'username': self.user.username}
+            ),
         ]
-        responses = []
         for page in pages_names:
-            response = self.authorized_client.get(page)
-        responses.append(response)
-        response_posts = []
-        for response in responses:
-            response_post = response.context.get('post')
-        response_posts.append(response_post)
-        self.assertIn(response_create_post, response_posts)
+            with self.subTest(page=page):
+                response = self.authorized_client.get(page)
+                context_post = response.context['page_obj'][0]
+                self.assertEqual(context_post, post)
 
     def test_post_correct_not_appear(self):
         """Созданный пост не появляется в группе, которой не пренадлежит."""
