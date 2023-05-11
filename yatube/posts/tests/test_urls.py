@@ -118,3 +118,9 @@ class PostURLTests(TestCase):
             response,
             reverse('posts:post_detail', kwargs={'post_id': self.post.id})
         )
+
+    def test_unixisting_page(self):
+        """Страница 404 отдает кастомный шаблон."""
+        response = self.client.get('/page_404')
+        self.assertEqual(response.status_code, HTTPStatus.NOT_FOUND)
+        self.assertTemplateUsed(response, 'core/404.html')

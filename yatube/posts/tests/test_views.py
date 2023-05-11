@@ -2,8 +2,9 @@ from django import forms
 from django.conf import settings
 from django.test import Client, TestCase
 from django.urls import reverse
+from django.core.cache import cache
 
-from posts.models import Post, Group, User
+from posts.models import Post, Group, Follow, User
 
 
 class PostPagesTests(TestCase):
@@ -173,6 +174,79 @@ class PostPagesTests(TestCase):
             with self.subTest(value=value):
                 form_field = response.context['form'].fields[value]
                 self.assertIsInstance(form_field, expected)
+
+    def test_cache_index(self):
+        """Проверка кеша на гравной странице."""
+        cache.clear()
+        post = Post.objects.create(
+            text='Тестовый пост',
+            author=self.user
+        )
+        content_add = self.authorized_client.get(
+            reverse('posts:index')
+        ).content
+        post.delete()
+        content_delete = self.authorized_client.get(
+            reverse('posts:index')
+        ).content
+        self.assertEqual(content_add, content_delete)
+        cache.clear()
+        content_cache_clear = self.authorized_client.get(
+            reverse('posts:index')
+        ).content
+        self.assertNotEqual(content_add, content_cache_clear)
+
+
+class FollowViewsTest(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.post_author = User.objects.create(
+            username='post_author',
+        )
+        cls.post_follower = User.objects.create(
+            username='post_follower',
+        )
+        cls.post = Post.objects.create(
+            text='Подпишись на меня',
+            author=cls.post_author,
+        )
+
+    def setUp(self):
+        cache.clear()
+        self.author_client = Client()
+        self.author_client.force_login(self.post_follower)
+        self.follower_client = Client()
+        self.follower_client.force_login(self.post_author)
+
+    def test_follow_on_user(self):
+        """Проверка подписки на пользователя."""
+        count_follow = Follow.objects.count()
+        self.follower_client.post(
+            reverse(
+                'posts:profile_follow',
+                kwargs={'username': self.post_follower}
+            )
+        )
+        follow = Follow.objects.all().latest('id')
+        self.assertEqual(Follow.objects.count(), count_follow + 1)
+        self.assertEqual(follow.author_id, self.post_follower.id)
+        self.assertEqual(follow.user_id, self.post_author.id)
+
+    def test_unfollow_on_user(self):
+        """Проверка отписки от пользователя."""
+        Follow.objects.create(
+            user=self.post_author,
+            author=self.post_follower
+        )
+        count_follow = Follow.objects.count()
+        self.follower_client.post(
+            reverse(
+                'posts:profile_unfollow',
+                kwargs={'username': self.post_follower}
+            )
+        )
+        self.assertEqual(Follow.objects.count(), count_follow - 1)
 
 
 class PaginatorViewsTest(TestCase):

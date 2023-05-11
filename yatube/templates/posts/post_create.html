@@ -38,7 +38,9 @@
           {% else %}
             {% url 'posts:post_create' %}
           {% endif %}
-        ">
+        "
+        >
+        <form method="post" enctype="multipart/form-data">
           {% csrf_token %}
           
           {% for field in form %}
@@ -57,7 +59,6 @@
                   </small>
                 {% endif %}
               </div>
-            </div>
           {% endfor %}
             <div class="d-flex justify-content-end">
               <button type="submit" class="btn btn-primary">
